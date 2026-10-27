@@ -56,7 +56,7 @@ public class SystemService {
      */
     public String saveLog(String module, String action, String operator,
                           String content, String clientIp) {
-        SystemLog log = SystemLog.builder()
+        SystemLog systemLog = SystemLog.builder()
                 .traceId(UUID.randomUUID().toString().replace("-", ""))
                 .module(module)
                 .action(action)
@@ -69,7 +69,7 @@ public class SystemService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        SystemLog saved = logRepository.save(log);
+        SystemLog saved = logRepository.save(systemLog);
         log.info("[MongoDB] 日志写入成功, id={}, module={}", saved.getId(), module);
 
         // 使缓存失效（下次读取时重新加载）

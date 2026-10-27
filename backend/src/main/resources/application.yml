@@ -70,3 +70,13 @@ logging:
     org.apache.cxf: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ── 安全与鉴权配置（M1 用户域）───────────────────────────
+security:
+  jwt:
+    secret: MealBuddySecretKeyForJwtAuthenticationTokenSigning20261027
+    access-token-expiration: 7200000       # 2 小时
+    refresh-token-expiration: 604800000   # 7 天
+  aes:
+    key: MealBuddyAesKey!                  # 16 字节 AES-128 密钥
+
