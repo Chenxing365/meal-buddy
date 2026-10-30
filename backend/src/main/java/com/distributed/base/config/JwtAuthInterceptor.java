@@ -31,8 +31,15 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // 放行公共 GET 查询（门店列表/详情、菜品列表/详情）
+        boolean isPublicGet = "GET".equalsIgnoreCase(request.getMethod()) &&
+                (request.getRequestURI().startsWith("/api/merchant/") || request.getRequestURI().startsWith("/api/dish"));
+
         String authHeader = request.getHeader("Authorization");
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+            if (isPublicGet) {
+                return true;
+            }
             throw new BusinessException(401, "请先登录（缺少 Bearer Token）");
         }
 
