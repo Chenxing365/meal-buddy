@@ -80,3 +80,8 @@ security:
   aes:
     key: MealBuddyAesKey!                  # 16 字节 AES-128 密钥
 
+
+# ── AI 智能体引擎配置（M3 AI 推荐域）─────────────────────────
+meal-buddy:
+  agent:
+    engine: spring-ai                      # 首期启用 spring-ai，支持切换为 langchain4j
