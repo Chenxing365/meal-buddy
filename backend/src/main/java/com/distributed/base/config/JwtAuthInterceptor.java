@@ -31,9 +31,12 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 放行公共 GET 查询（门店列表/详情、菜品列表/详情）
+        String uri = request.getRequestURI();
+
+        // 放行公共 GET 查询（门店列表/详情、菜品列表/详情），需排除商家端私有路径（如经营大盘与商家订单）
+        boolean isMerchantPrivate = uri.equals("/api/merchant/dashboard") || uri.equals("/api/merchant/orders") || uri.equals("/api/merchant/verify");
         boolean isPublicGet = "GET".equalsIgnoreCase(request.getMethod()) &&
-                (request.getRequestURI().startsWith("/api/merchant/") || request.getRequestURI().startsWith("/api/dish"));
+                ((uri.startsWith("/api/merchant/") && !isMerchantPrivate) || uri.equals("/api/merchant/list") || uri.startsWith("/api/dish"));
 
         String authHeader = request.getHeader("Authorization");
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
