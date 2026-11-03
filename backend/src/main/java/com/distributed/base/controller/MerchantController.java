@@ -1,11 +1,9 @@
 package com.distributed.base.controller;
 
 import com.distributed.base.common.Result;
-import com.distributed.base.dto.MerchantApplyRequest;
-import com.distributed.base.dto.MerchantDetailResponse;
-import com.distributed.base.dto.MerchantResponse;
-import com.distributed.base.dto.MerchantUpdateRequest;
+import com.distributed.base.dto.*;
 import com.distributed.base.service.MerchantService;
+import com.distributed.base.service.OrderService;
 import com.distributed.base.util.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,10 +20,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/merchant")
 @RequiredArgsConstructor
-@Tag(name = "商家门店接口", description = "商家入驻资质申请、门店详情查看、附近门店检索、营业信息变更")
+@Tag(name = "商家门店接口", description = "商家入驻资质申请、门店详情查看、附近门店检索、营业信息变更、到店核销与经营大盘")
 public class MerchantController {
 
     private final MerchantService merchantService;
+    private final OrderService orderService;
 
     @PostMapping("/apply")
     @Operation(summary = "商家提交入驻申请", description = "初始状态置为 0-待审核，等待平台管理员审核")
@@ -63,5 +62,31 @@ public class MerchantController {
         String userId = UserContext.getUserId();
         MerchantResponse response = merchantService.updateMerchantInfo(id, userId, req);
         return Result.ok("门店信息已更新", response);
+    }
+
+    @PostMapping("/verify")
+    @Operation(summary = "商家核销自提/堂食订单", description = "校验核销码，流转为已核销，幂等防重")
+    public Result<VerifyResponse> verifyOrder(@Valid @RequestBody VerifyRequest req) {
+        String userId = UserContext.getUserId();
+        VerifyResponse response = orderService.verifyOrder(userId, req);
+        return Result.ok("核销成功", response);
+    }
+
+    @GetMapping("/dashboard")
+    @Operation(summary = "商家经营大盘", description = "查看当日订单量、营业额、已核销数及核销率")
+    public Result<MerchantDashboardResponse> getDashboard() {
+        String userId = UserContext.getUserId();
+        MerchantDashboardResponse response = orderService.getMerchantDashboard(userId);
+        return Result.ok(response);
+    }
+
+    @GetMapping("/orders")
+    @Operation(summary = "商家门店订单管理", description = "分页查看属于当前商家门店的所有订单")
+    public Result<Page<OrderResponse>> listMerchantOrders(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        String userId = UserContext.getUserId();
+        Page<OrderResponse> pageResult = orderService.listMerchantOrders(userId, page, size);
+        return Result.ok(pageResult);
     }
 }
