@@ -8,15 +8,13 @@
 </template>
 
 <style>
+@import './styles/theme.css';
+
 /* 全局重置 */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-}
-page {
-  background-color: #0f1117;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
 }
 button::after {
   border: none;

@@ -1,0 +1,199 @@
+/**
+ * src/styles/theme.css
+ * Meal-Buddy (恰饭啦) 商业级现代美食 App 全局设计原子库
+ */
+
+:root {
+  --primary: #FF5E00;
+  --primary-light: #FFF7ED;
+  --primary-gradient: linear-gradient(135deg, #FF6B00 0%, #FF3D00 100%);
+  --slim-green: #10B981;
+  --slim-green-light: #ECFDF5;
+  --indulge-purple: #8B5CF6;
+  --indulge-purple-light: #F5F3FF;
+  --bg-page: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-tertiary: #94A3B8;
+  --border-light: #E2E8F0;
+  --shadow-sm: 0 2rpx 8rpx rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 8rpx 24rpx rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 16rpx 36rpx rgba(255, 94, 0, 0.15);
+  --radius-sm: 12rpx;
+  --radius-md: 20rpx;
+  --radius-lg: 32rpx;
+  --radius-full: 999rpx;
+}
+
+/* 页面通用底色 */
+page {
+  background-color: #F8FAFC;
+  color: #0F172A;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 基础响应式容器 */
+.page-container {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  padding-bottom: 120rpx;
+}
+
+/* 基础卡片骨架 */
+.food-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(15, 23, 42, 0.04);
+  border: 1rpx solid rgba(226, 232, 240, 0.8);
+  box-sizing: border-box;
+}
+
+/* 高光强调卡片 */
+.food-card-featured {
+  background: linear-gradient(145deg, #FFFFFF 0%, #FFFBF5 100%);
+  border: 1rpx solid #FED7AA;
+  box-shadow: 0 8rpx 28rpx rgba(255, 107, 0, 0.08);
+}
+
+/* 减脂绿色卡片 */
+.food-card-slim {
+  background: linear-gradient(145deg, #FFFFFF 0%, #F0FDF4 100%);
+  border: 1rpx solid #BBF7D0;
+  box-shadow: 0 8rpx 28rpx rgba(16, 185, 129, 0.08);
+}
+
+/* 标题规范 */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.section-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #0F172A;
+}
+.section-extra {
+  font-size: 24rpx;
+  color: #FF5E00;
+  font-weight: 500;
+}
+
+/* 胶囊标签系统 */
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 14rpx;
+  font-size: 22rpx;
+  border-radius: 10rpx;
+  font-weight: 600;
+  margin-right: 12rpx;
+}
+.tag-calorie {
+  background: #ECFDF5;
+  color: #059669;
+  border: 1rpx solid #A7F3D0;
+}
+.tag-flavor {
+  background: #FFF7ED;
+  color: #EA580C;
+  border: 1rpx solid #FFEDD5;
+}
+.tag-mode-slim {
+  background: #ECFDF5;
+  color: #059669;
+}
+.tag-mode-normal {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+.tag-mode-indulge {
+  background: #F5F3FF;
+  color: #7C3AED;
+}
+
+/* 现代按钮体系 */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #FF6B00 0%, #FF3D00 100%);
+  color: #FFFFFF;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 20rpx 0;
+  text-align: center;
+  box-shadow: 0 8rpx 20rpx rgba(255, 94, 0, 0.25);
+  border: none;
+  transition: all 0.15s ease;
+}
+.btn-primary-gradient:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background: #F1F5F9;
+  color: #334155;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 18rpx 0;
+  text-align: center;
+  border: none;
+}
+.btn-secondary:active {
+  background: #E2E8F0;
+}
+
+/* 价格字体设计 */
+.price-symbol {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #FF3D00;
+}
+.price-value {
+  font-size: 38rpx;
+  font-weight: 800;
+  color: #FF3D00;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 输入框规范 */
+.input-field {
+  background: #F8FAFC;
+  border: 1rpx solid #E2E8F0;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #0F172A;
+  margin-bottom: 20rpx;
+  box-sizing: border-box;
+  width: 100%;
+}
+.input-field:focus {
+  border-color: #FF6B00;
+  background: #FFFFFF;
+}
+
+/* 空状态占位提示 */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 0;
+}
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+.empty-text {
+  font-size: 26rpx;
+  color: #94A3B8;
+}
+
