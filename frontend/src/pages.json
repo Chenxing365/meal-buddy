@@ -49,6 +49,14 @@
       }
     },
     {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情与凭据",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/merchant/dashboard",
       "style": {
         "navigationBarTitleText": "商家运营工作台",

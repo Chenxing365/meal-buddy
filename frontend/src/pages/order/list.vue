@@ -20,6 +20,7 @@
         v-for="order in orderList" 
         :key="order.id" 
         class="food-card order-card"
+        @tap="goToDetail(order.id)"
       >
         <!-- 订单头部：门店名与状态流转标签 -->
         <view class="order-card-header">
@@ -98,6 +99,9 @@ async function fetchOrders() {
   } finally {
     loading.value = false
   }
+}
+function goToDetail(orderId: string) {
+  uni.navigateTo({ url: `/pages/order/detail?id=${orderId}` })
 }
 </script>
 

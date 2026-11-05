@@ -1,11 +1,14 @@
 <template>
   <view class="chat-page">
-    <!-- 顶部状态栏 -->
+    <!-- 顶部状态栏与模式区分 -->
     <view class="chat-header">
       <view class="assistant-avatar">🤖</view>
       <view class="assistant-meta">
-        <text class="assistant-name">AI 饭搭子 · 专属营养顾问</text>
-        <text class="assistant-status">🟢 智能体在线 · 记忆前10轮上下文</text>
+        <text class="assistant-name">AI 咨询助手（对话式选餐）</text>
+        <text class="assistant-status">🟢 智能体在线 · 支持忌口搭配、换菜、热量咨询</text>
+      </view>
+      <view class="direct-rec-btn" @tap="goToRecommendBoard">
+        <text>一键配餐 ›</text>
       </view>
     </view>
 
@@ -20,7 +23,17 @@
       <view class="message-item assistant">
         <view class="bubble-avatar">🤖</view>
         <view class="bubble-content">
-          <text>您好！我是您的 AI 饭搭子营养助手。想了解菜品热量、忌口搭配，或者不知道吃什么？随时向我提问吧！</text>
+          <text>您好！我是您的 AI 营养咨询助手。如果您对今日配餐有特殊需求（如：换掉生洋葱、控制20元以内、吃辣长痘等），随时在此跟我多轮互动！</text>
+        </view>
+      </view>
+
+      <!-- 快捷提问推荐气泡 -->
+      <view class="quick-questions-box" v-if="messages.length === 0">
+        <text class="quick-title">💡 常见提问引导（点击直接提问）：</text>
+        <view class="quick-tags">
+          <text class="quick-tag" @tap="sendQuickText('推荐一份低卡少油且不吃辣的午餐')">🌱 低卡少油不吃辣</text>
+          <text class="quick-tag" @tap="sendQuickText('今天训练完，想要高蛋白增肌搭配')">💪 运动高蛋白增肌</text>
+          <text class="quick-tag" @tap="sendQuickText('预算30元以内，有什么好吃的推荐？')">💰 30元内高性价比</text>
         </view>
       </view>
 
@@ -135,6 +148,14 @@ function scrollToBottom() {
     scrollTop.value = scrollTop.value + 1000
   })
 }
+function goToRecommendBoard() {
+  uni.switchTab({ url: '/pages/recommend/index' })
+}
+
+function sendQuickText(text: string) {
+  inputMsg.value = text
+  sendMessage()
+}
 </script>
 
 <style scoped>
@@ -167,6 +188,41 @@ function scrollToBottom() {
   color: #10B981;
 }
 
+.direct-rec-btn {
+  background: #FFF7ED;
+  color: #FF5E00;
+  border: 1rpx solid #FFEDD5;
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+}
+.quick-questions-box {
+  margin: 16rpx 24rpx;
+  padding: 20rpx;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  border: 1rpx solid #F1F5F9;
+}
+.quick-title {
+  font-size: 24rpx;
+  color: #64748B;
+  display: block;
+  margin-bottom: 12rpx;
+}
+.quick-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.quick-tag {
+  font-size: 24rpx;
+  color: #0F172A;
+  background: #F8FAFC;
+  padding: 10rpx 16rpx;
+  border-radius: 10rpx;
+  border: 1rpx solid #E2E8F0;
+}
 .message-list {
   flex: 1;
   padding: 24rpx;

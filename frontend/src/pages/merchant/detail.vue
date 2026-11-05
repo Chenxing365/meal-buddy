@@ -58,7 +58,8 @@
               <view class="dish-action-row">
                 <view class="price-box">
                   <text class="price-symbol">¥</text>
-                  <text class="price-value">{{ dish.price }}</text>
+                  <text class="price-value">{{ (dish.memberPrice && dish.memberPrice > 0 ? dish.memberPrice : dish.price).toFixed(2) }}</text>
+                  <text v-if="dish.memberPrice && dish.memberPrice > 0 && dish.memberPrice < dish.price" class="origin-price">¥{{ dish.price.toFixed(2) }}</text>
                 </view>
                 <!-- 加减购物车控制器 -->
                 <view class="cart-stepper">
@@ -115,7 +116,10 @@ const totalCartCount = computed(() => {
 })
 
 const totalCartPrice = computed(() => {
-  return Object.values(cart.value).reduce((sum, item) => sum + (item.dish.price * item.quantity), 0)
+  return Object.values(cart.value).reduce((sum, item) => {
+    const actPrice = (item.dish.memberPrice && item.dish.memberPrice > 0) ? item.dish.memberPrice : item.dish.price
+    return sum + (actPrice * item.quantity)
+  }, 0)
 })
 
 onMounted(async () => {
@@ -166,12 +170,16 @@ function decreaseCart(dish: DishInfo) {
 }
 
 function goToConfirmOrder() {
-  const items = Object.values(cart.value).map(item => ({
-    dishId: item.dish.id,
-    name: item.dish.name,
-    price: item.dish.price,
-    quantity: item.quantity
-  }))
+  const items = Object.values(cart.value).map(item => {
+    const actPrice = (item.dish.memberPrice && item.dish.memberPrice > 0) ? item.dish.memberPrice : item.dish.price
+    return {
+      dishId: item.dish.id,
+      name: item.dish.name,
+      price: actPrice,
+      originPrice: item.dish.price,
+      quantity: item.quantity
+    }
+  })
 
   const orderDraft = {
     merchantId: merchant.value?.id,
@@ -262,6 +270,16 @@ function goToConfirmOrder() {
   justify-content: space-between;
   align-items: center;
   margin-top: 10rpx;
+}
+.price-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+.origin-price {
+  font-size: 22rpx;
+  color: #94A3B8;
+  text-decoration: line-through;
 }
 
 .cart-stepper {

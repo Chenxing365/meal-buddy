@@ -146,10 +146,12 @@ async function handleCreateAndPayOrder() {
     uni.removeStorageSync('__current_order_draft__')
     uni.showToast({ title: '支付成功！', icon: 'success' })
 
-    // 跳转至订单中心
+    // 核心修复：自动跳转至该笔订单的专属详情/凭据页
     setTimeout(() => {
-      uni.redirectTo({ url: '/pages/order/list' })
-    }, 1200)
+      uni.redirectTo({ 
+        url: `/pages/order/detail?id=${orderId}` 
+      })
+    }, 800)
 
   } catch (e) {
     uni.showToast({ title: (e as Error).message || '下单支付失败', icon: 'none' })
