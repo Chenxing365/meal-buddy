@@ -20,15 +20,22 @@ export interface UserPreferences {
   allergyTags: string[]
 }
 
-export function register(data: { username: string; password: string; nickname?: string; phone?: string }) {
-  return http.post<UserInfo>('/api/user/register', data)
+export async function register(data: { username: string; password: string; nickname?: string; phone?: string }) {
+  const res = await http.post<UserInfo>('/api/user/register', data)
+  // 后端业务失败仍返回 HTTP 200/400 + success:false，必须显式抛出，否则调用方会误判为成功
+  if (!res.success) {
+    throw new Error(res.message || '注册失败')
+  }
+  return res
 }
 
 export async function login(data: { username: string; password: string }) {
-  const res = await http.post<{ token: string; user: UserInfo }>('/api/user/login', data)
-  if (res.data?.token) {
-    setToken(res.data.token)
+  // 后端 LoginResponse 字段为 accessToken / refreshToken / user
+  const res = await http.post<{ accessToken: string; refreshToken: string; user: UserInfo }>('/api/user/login', data)
+  if (!res.success || !res.data?.accessToken) {
+    throw new Error(res.message || '用户名或密码错误')
   }
+  setToken(res.data.accessToken)
   return res
 }
 
