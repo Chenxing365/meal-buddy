@@ -10,18 +10,20 @@
  * 4. TypeScript 泛型支持，保证调用侧类型安全
  */
 
-// ── 运行平台判断 ──────────────────────────────────────────────────
-const IS_H5 = typeof window !== 'undefined' && typeof wx === 'undefined'
-
 // ── BaseURL 配置 ──────────────────────────────────────────────────
 /**
- * H5 端：使用相对路径 '' — 由 Vite devServer.proxy 代理到 8080
- *        生产部署时由 Nginx 反向代理，同域名无需填写
- * 小程序端：填写实际后端 HTTPS 地址（必须已备案并配置安全域名）
+ * 注意：不要用 `typeof wx !== 'undefined'` 判断平台。
+ * uni-app 在 H5 端同样注入了 wx 全局对象（微信 API 兼容层），
+ * 会导致 H5 被误判为小程序，进而请求 https://your-server.com 触发跨域失败。
+ *
+ * 使用 uni-app 条件编译（编译期裁剪，最可靠）：
+ *   H5      → 相对路径 ''，由 Nginx 同源反向代理到后端
+ *   小程序  → 直连地址；内网演示用局域网 IP，仅开发者工具可跑通
  */
-const BASE_URL_H5      = ''                             // H5 同域代理
-const BASE_URL_MP      = 'https://your-server.com'     // 小程序直连地址（按需修改）
-const BASE_URL         = IS_H5 ? BASE_URL_H5 : BASE_URL_MP
+let BASE_URL = ''
+// #ifndef H5
+BASE_URL = ''
+// #endif
 
 // ── Token 工具函数 ────────────────────────────────────────────────
 function getToken(): string | null {
@@ -59,14 +61,39 @@ export interface ApiResponse<T = unknown> {
   [key: string]: unknown
 }
 
+// ── 启动登录闸门 ──────────────────────────────────────────────────
+/**
+ * 启动阶段自动登录的 Promise 句柄。
+ *
+ * 设置后，除登录/注册外的请求都会先等待其完成，
+ * 避免页面 onMounted 的请求早于自动登录、因缺少 Bearer Token 而失败。
+ */
+let authReady: Promise<void> | null = null
+
+export function setAuthReady(promise: Promise<void>): void {
+  // 自动登录失败不应阻塞业务请求，统一吞掉异常
+  authReady = promise.catch(() => undefined)
+}
+
 // ── 核心请求函数 ──────────────────────────────────────────────────
 /**
- * 统一请求方法
+ * 统一请求方法（带启动登录闸门）
  *
  * @example
  * const res = await request<{ id: string }>({ url: '/api/mongo/log', method: 'POST', data: {...} })
  */
 export function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> {
+  const bypassGate = options.url === '/api/user/login' || options.url === '/api/user/register'
+  if (authReady && !bypassGate) {
+    return authReady.then(() => send<T>(options))
+  }
+  return send<T>(options)
+}
+
+/**
+ * 实际发送请求（不含登录闸门）
+ */
+function send<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> {
   const {
     url,
     method    = 'GET',
