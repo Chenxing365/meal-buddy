@@ -1,13 +1,13 @@
 <template>
   <view class="page-container">
-    <!-- 顶部标题与对话助手快捷入口 -->
+    <!-- 顶部定位说明与进入会话快捷胶囊 -->
     <view class="section-header">
       <view>
-        <text class="section-title">🤖 AI 饭搭子精选推荐</text>
-        <text class="sub-header-text">基于健康目标、热量阈值与口味偏好实时推理</text>
+        <text class="section-title">🍱 今日营养精准配餐（主动推荐）</text>
+        <text class="sub-header-text">基于身体偏好与摄入阈值，一键生成定制化餐单</text>
       </view>
       <view class="chat-pill" @tap="goToChat">
-        <text>💬 咨询助手</text>
+        <text>💬 找AI聊聊选餐</text>
       </view>
     </view>
 
