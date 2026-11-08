@@ -3,10 +3,16 @@
 
 db = db.getSiblingDB('distributed_base');
 
+// 应用账号凭据：由容器环境变量注入（生产），未注入时回退默认值（本地开发）
+const APP_USER = (typeof process !== 'undefined' && process.env.MONGO_APP_USER)
+  ? process.env.MONGO_APP_USER : 'app_user';
+const APP_PWD = (typeof process !== 'undefined' && process.env.MONGO_APP_PASSWORD)
+  ? process.env.MONGO_APP_PASSWORD : 'app_password_change_me';
+
 // 创建应用专用用户（权限最小化）
 db.createUser({
-  user: 'app_user',
-  pwd:  'app_password_change_me',
+  user: APP_USER,
+  pwd:  APP_PWD,
   roles: [{ role: 'readWrite', db: 'distributed_base' }]
 });
 
