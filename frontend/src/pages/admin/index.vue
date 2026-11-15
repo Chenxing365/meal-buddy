@@ -1,5 +1,14 @@
 <template>
   <view class="app-container admin-page">
+    <!-- 权限不足提示横幅 -->
+    <view v-if="permissionDenied" class="permission-denied-banner">
+      <text class="perm-icon">🔒</text>
+      <view class="perm-text-box">
+        <text class="perm-title">权限不足，无法拉取全平台数据</text>
+        <text class="perm-sub">请在「我的」页面切换至管理员账号（admin）后重新进入</text>
+      </view>
+    </view>
+
     <!-- 顶部状态栏与统计 -->
     <view class="admin-header card-industrial">
       <view class="header-main">
@@ -226,6 +235,7 @@ import {
 import type { MerchantInfo } from '@/api/merchant'
 
 const currentTab = ref<'merchant' | 'user'>('merchant')
+const permissionDenied = ref(false)
 
 // 商户数据
 const merchants = ref<MerchantInfo[]>([])
@@ -240,6 +250,16 @@ const userTotal = ref(0)
 const userRoleFilter = ref<number | undefined>(undefined)
 const loadingUsers = ref(false)
 
+function checkPermissionError(err: any): boolean {
+  const status = err?.statusCode || err?.status || err?.code
+  const msg = (err?.message || '').toLowerCase()
+  if (status === 403 || msg.includes('403') || msg.includes('forbidden') || msg.includes('权限')) {
+    permissionDenied.value = true
+    return true
+  }
+  return false
+}
+
 async function fetchMerchants() {
   loadingMerchants.value = true
   try {
@@ -253,8 +273,11 @@ async function fetchMerchants() {
     if (merchantStatusFilter.value === undefined) {
       pendingCount.value = merchants.value.filter(m => m.status === 0).length
     }
+    permissionDenied.value = false
   } catch (err: any) {
-    uni.showToast({ title: err.message || '加载商户失败', icon: 'none' })
+    if (!checkPermissionError(err)) {
+      uni.showToast({ title: err.message || '加载商户失败', icon: 'none' })
+    }
   } finally {
     loadingMerchants.value = false
   }
@@ -270,8 +293,11 @@ async function fetchUsers() {
     })
     users.value = res.content || []
     userTotal.value = res.totalElements || 0
+    permissionDenied.value = false
   } catch (err: any) {
-    uni.showToast({ title: err.message || '加载用户失败', icon: 'none' })
+    if (!checkPermissionError(err)) {
+      uni.showToast({ title: err.message || '加载用户失败', icon: 'none' })
+    }
   } finally {
     loadingUsers.value = false
   }
@@ -622,6 +648,36 @@ onMounted(() => {
 .empty-text {
   font-size: 26rpx;
   color: #94A3B8;
+}
+
+.permission-denied-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: #FEF2F2;
+  border: 1rpx solid #FECACA;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.perm-icon {
+  font-size: 44rpx;
+  flex-shrink: 0;
+}
+.perm-text-box {
+  flex: 1;
+}
+.perm-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #DC2626;
+  display: block;
+  margin-bottom: 6rpx;
+}
+.perm-sub {
+  font-size: 22rpx;
+  color: #EF4444;
+  line-height: 1.6;
 }
 </style>
 
