@@ -1,13 +1,16 @@
 package com.distributed.base.controller;
 
 import com.distributed.base.entity.SystemLog;
+import com.distributed.base.exception.BusinessException;
 import com.distributed.base.service.SystemService;
+import com.distributed.base.util.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +48,10 @@ public class ApiController {
 
     private final SystemService systemService;
 
+    /** 当前实例端口，用于联调看板展示命中节点（双实例负载均衡） */
+    @Value("${server.port:8080}")
+    private String serverPort;
+
     // ================================================================
     // ── 健康探针 ─────────────────────────────────────────────────────
     // ================================================================
@@ -57,6 +64,7 @@ public class ApiController {
         resp.put("message", "pong");
         resp.put("timestamp", LocalDateTime.now().toString());
         resp.put("service", "distributed-base");
+        resp.put("instance", serverPort);
         return ResponseEntity.ok(resp);
     }
 
@@ -81,6 +89,7 @@ public class ApiController {
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
 
+        checkAdmin();
         String module   = body.getOrDefault("module",   "TEST");
         String action   = body.getOrDefault("action",   "CREATE");
         String operator = body.getOrDefault("operator", "anonymous");
@@ -155,6 +164,7 @@ public class ApiController {
     public ResponseEntity<Map<String, Object>> setCache(
             @RequestBody Map<String, Object> body) {
 
+        checkAdmin();
         String key   = (String) body.get("key");
         Object value = body.get("value");
 
@@ -199,6 +209,7 @@ public class ApiController {
     @PostMapping("/redis/counter/incr")
     @Operation(summary = "计数器自增", description = "Redis INCR 原子操作，线程安全，适合高并发计数")
     public ResponseEntity<Map<String, Object>> increment() {
+        checkAdmin();
         Long count = systemService.incrementCounter();
 
         Map<String, Object> resp = new HashMap<>();
@@ -228,6 +239,7 @@ public class ApiController {
     @DeleteMapping("/redis/counter/reset")
     @Operation(summary = "重置计数器", description = "将 Redis 计数器归零")
     public ResponseEntity<Map<String, Object>> resetCounter() {
+        checkAdmin();
         systemService.resetCounter();
 
         Map<String, Object> resp = new HashMap<>();
@@ -247,12 +259,20 @@ public class ApiController {
     @GetMapping("/stats")
     @Operation(summary = "系统统计快照", description = "汇总 MongoDB + Redis 当前状态，60s 缓存")
     public ResponseEntity<Map<String, Object>> getStats() {
-        String json = systemService.getStatsJson();
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("success", true);
-        resp.put("stats", json);
+        resp.put("stats", systemService.getStats());
         resp.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * 写操作（写日志 / 写缓存 / 计数自增 / 重置计数）需要平台管理员权限
+     */
+    private void checkAdmin() {
+        Integer role = UserContext.getRole();
+        if (role == null || role != 9) {
+            throw new BusinessException(403, "无权操作：联调写接口需要平台管理员权限");
+        }
     }
 }

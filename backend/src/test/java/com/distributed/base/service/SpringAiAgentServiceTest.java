@@ -4,6 +4,7 @@ import com.distributed.base.dto.RecommendResult;
 import com.distributed.base.entity.Dish;
 import com.distributed.base.entity.UserPreference;
 import com.distributed.base.repository.DishRepository;
+import com.distributed.base.repository.MerchantRepository;
 import com.distributed.base.repository.UserPreferenceRepository;
 import com.distributed.base.service.impl.agent.SpringAiAgentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,11 +30,14 @@ class SpringAiAgentServiceTest {
     @Mock
     private UserPreferenceRepository userPreferenceRepository;
 
+    @Mock
+    private MerchantRepository merchantRepository;
+
     private SpringAiAgentServiceImpl agentService;
 
     @BeforeEach
     void setUp() {
-        agentService = new SpringAiAgentServiceImpl(dishRepository, userPreferenceRepository);
+        agentService = new SpringAiAgentServiceImpl(dishRepository, userPreferenceRepository, merchantRepository);
     }
 
     @Test

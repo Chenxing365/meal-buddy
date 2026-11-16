@@ -1,0 +1,30 @@
+[Unit]
+Description=Meal Buddy Backend (port __PORT__)
+Documentation=http://localhost:__PORT__/swagger-ui.html
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=meal
+Group=meal
+WorkingDirectory=/opt/meal-buddy/app
+EnvironmentFile=/opt/meal-buddy/app/meal-buddy.env
+Environment=SERVER_PORT=__PORT__
+ExecStart=/opt/jdk-17/bin/java \
+    -Xms512m -Xmx1024m \
+    -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
+    -Duser.timezone=Asia/Shanghai \
+    -Dfile.encoding=UTF-8 \
+    -jar /opt/meal-buddy/app/distributed-base.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=meal-buddy-__PORT__
+
+[Install]
+WantedBy=multi-user.target

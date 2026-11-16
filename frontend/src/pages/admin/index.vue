@@ -101,16 +101,16 @@
           </view>
 
           <view class="detail-row">
-            <text class="field-label">联系电话：</text>
-            <text class="field-val">{{ item.phone || '未填写' }}</text>
-          </view>
-          <view class="detail-row">
             <text class="field-label">经营地址：</text>
             <text class="field-val">{{ item.address || '未填写' }}</text>
           </view>
           <view class="detail-row">
-            <text class="field-label">商户简介：</text>
-            <text class="field-val">{{ item.description || '暂无简介' }}</text>
+            <text class="field-label">平台抽成：</text>
+            <text class="field-val">{{ ((item.commissionRate ?? 0) * 100).toFixed(1) }}%</text>
+          </view>
+          <view class="detail-row">
+            <text class="field-label">驳回理由：</text>
+            <text class="field-val">{{ item.rejectReason || '--' }}</text>
           </view>
           <view class="detail-row">
             <text class="field-label">申请时间：</text>
@@ -152,6 +152,11 @@
           class="filter-chip"
           :class="{ active: userRoleFilter === 1 }"
           @click="changeUserFilter(1)"
+        >配送骑手</view>
+        <view
+          class="filter-chip"
+          :class="{ active: userRoleFilter === 2 }"
+          @click="changeUserFilter(2)"
         >商户店主</view>
         <view
           class="filter-chip"
@@ -268,10 +273,21 @@ async function fetchMerchants() {
       page: 0,
       size: 50
     })
-    merchants.value = res.content || []
-    merchantTotal.value = res.totalElements || 0
+    // 后端统一返回 Result{ success, code, data }，分页数据在 data 内
+    if (!res.success) {
+      if (!checkPermissionError(res)) {
+        uni.showToast({ title: res.message || '加载商户失败', icon: 'none' })
+      }
+      merchants.value = []
+      return
+    }
+    const pageData = res.data
+    merchants.value = pageData?.content || []
     if (merchantStatusFilter.value === undefined) {
+      merchantTotal.value = pageData?.totalElements || 0
       pendingCount.value = merchants.value.filter(m => m.status === 0).length
+    } else if (merchantStatusFilter.value === 0) {
+      pendingCount.value = pageData?.totalElements || 0
     }
     permissionDenied.value = false
   } catch (err: any) {
@@ -291,8 +307,19 @@ async function fetchUsers() {
       page: 0,
       size: 50
     })
-    users.value = res.content || []
-    userTotal.value = res.totalElements || 0
+    if (!res.success) {
+      if (!checkPermissionError(res)) {
+        uni.showToast({ title: res.message || '加载用户失败', icon: 'none' })
+      }
+      users.value = []
+      return
+    }
+    const pageData = res.data
+    users.value = pageData?.content || []
+    // 仅在未按角色过滤时更新"注册用户"总数，避免筛选后统计口径漂移
+    if (userRoleFilter.value === undefined) {
+      userTotal.value = pageData?.totalElements || 0
+    }
     permissionDenied.value = false
   } catch (err: any) {
     if (!checkPermissionError(err)) {
@@ -386,14 +413,15 @@ function getMerchantStatusBadge(status?: number) {
   }
 }
 
+// 角色编码与后端保持一致：0-普通用户，1-骑手，2-商家，9-管理员
 function getUserRoleBadge(role?: number) {
   switch (role) {
     case 9:
       return { text: '系统管理员', cls: 'badge-status badge-danger' }
-    case 1:
-      return { text: '商户店主', cls: 'badge-status badge-brand' }
     case 2:
-      return { text: '配送专员', cls: 'badge-status badge-info' }
+      return { text: '商户店主', cls: 'badge-status badge-brand' }
+    case 1:
+      return { text: '配送骑手', cls: 'badge-status badge-info' }
     default:
       return { text: '注册会员', cls: 'badge-status badge-neutral' }
   }

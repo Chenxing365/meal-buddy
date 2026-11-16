@@ -6,7 +6,7 @@
         <text class="location-icon">📍</text>
         <text class="location-text">天府软件园 · 研发中心</text>
       </view>
-      <view class="debug-entry" @tap="navigateTo('/pages/index/index')">
+      <view class="debug-entry" v-if="isAdmin" @tap="navigateTo('/pages/index/index')">
         <text>⚡ 联调看板</text>
       </view>
     </view>
@@ -94,8 +94,8 @@
           <view class="dish-info">
             <text class="dish-name">{{ dish.name }}</text>
             <!-- 商户标签 -->
-            <view class="dish-merchant-tag" v-if="merchantMap[dish.merchantId]">
-              <text class="merchant-tag-text">🏪 {{ merchantMap[dish.merchantId] }}</text>
+            <view class="dish-merchant-tag" v-if="dishMerchantName(dish)">
+              <text class="merchant-tag-text">🏪 {{ dishMerchantName(dish) }}</text>
             </view>
             <view class="dish-tags-row">
               <text class="tag-badge tag-calorie">🔥 {{ dish.calorie }} 大卡</text>
@@ -179,6 +179,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getMerchantList, type MerchantInfo } from '@/api/merchant'
+import { getUserInfo } from '@/api/user'
 import {
   getRecommendMode,
   switchRecommendMode,
@@ -187,9 +188,11 @@ import {
   type RecommendResponse
 } from '@/api/recommend'
 import type { DishInfo } from '@/api/dish'
+import { getDishEmoji } from '@/utils/dish'
 
 const loadingMerchants = ref(false)
 const loadingRecommend = ref(false)
+const isAdmin = ref(false)
 const merchantList = ref<MerchantInfo[]>([])
 const activeMode = ref<'slim' | 'normal' | 'indulge'>('normal')
 const recommendData = ref<RecommendResponse | null>(null)
@@ -199,10 +202,17 @@ const merchantMap = ref<Record<string, string>>({})
 
 onMounted(async () => {
   await loadMode()
-  // 并行拉取商家列表 + AI 推荐
-  await Promise.all([fetchMerchants(), fetchRecommendations()])
+  // 并行拉取商家列表 + AI 推荐 + 当前角色（联调看板仅管理员可见）
+  await Promise.all([fetchMerchants(), fetchRecommendations(), loadRole()])
   buildMerchantMap()
 })
+
+async function loadRole() {
+  try {
+    const res = await getUserInfo()
+    isAdmin.value = res.data?.role === 9
+  } catch (e) { /* 未登录静默 */ }
+}
 
 async function loadMode() {
   try {
@@ -293,14 +303,9 @@ function navigateTo(url: string) {
   uni.navigateTo({ url })
 }
 
-function getDishEmoji(name: string): string {
-  if (name.includes('沙拉') || name.includes('轻食')) return '🥗'
-  if (name.includes('鸡') || name.includes('肉')) return '🍗'
-  if (name.includes('牛')) return '🥩'
-  if (name.includes('虾') || name.includes('海鲜')) return '🍤'
-  if (name.includes('面') || name.includes('粉')) return '🍜'
-  if (name.includes('堡')) return '🍔'
-  return '🍱'
+// 推荐结果已带门店名称，回退到本地映射以兼容历史接口
+function dishMerchantName(dish: DishInfo): string {
+  return dish.merchantName || merchantMap.value[dish.merchantId] || ''
 }
 </script>
 

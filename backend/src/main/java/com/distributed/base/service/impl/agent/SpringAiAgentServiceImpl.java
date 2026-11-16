@@ -3,8 +3,10 @@ package com.distributed.base.service.impl.agent;
 import com.distributed.base.dto.DishResponse;
 import com.distributed.base.dto.RecommendResult;
 import com.distributed.base.entity.Dish;
+import com.distributed.base.entity.Merchant;
 import com.distributed.base.entity.UserPreference;
 import com.distributed.base.repository.DishRepository;
+import com.distributed.base.repository.MerchantRepository;
 import com.distributed.base.repository.UserPreferenceRepository;
 import com.distributed.base.service.MealBuddyAgentService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
 
     private final DishRepository dishRepository;
     private final UserPreferenceRepository userPreferenceRepository;
+    private final MerchantRepository merchantRepository;
 
     @Override
     public RecommendResult generateRecommendation(String userId, String mode) {
@@ -49,12 +52,19 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
                 .filter(d -> !hasAllergyConflict(d, allergyTags))
                 .collect(Collectors.toList());
 
+        // 只推荐营业中（status=1）门店的菜品，并与门店详情页口径保持一致
+        Map<String, Merchant> merchantIndex = loadMerchantIndex(candidateDishes);
+        candidateDishes = candidateDishes.stream()
+                .filter(d -> isServingMerchantDish(d, merchantIndex))
+                .collect(Collectors.toList());
+
         List<Dish> matchedDishes;
         String matchReason;
         Map<String, Object> ruleSnapshot = new HashMap<>();
         ruleSnapshot.put("engine", "spring-ai");
         ruleSnapshot.put("mode", mode);
         ruleSnapshot.put("allergyExcluded", allergyTags);
+        ruleSnapshot.put("merchantFilter", "status=1");
 
         if ("slim".equalsIgnoreCase(mode)) {
             int maxCalorie = preference.getCalorieLimit() != null && preference.getCalorieLimit() > 0
@@ -114,7 +124,9 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
         }
 
         List<String> dishIds = matchedDishes.stream().map(Dish::getId).collect(Collectors.toList());
-        List<DishResponse> dishResponses = matchedDishes.stream().map(this::toDishResponse).collect(Collectors.toList());
+        List<DishResponse> dishResponses = matchedDishes.stream()
+                .map(d -> toDishResponse(d, merchantIndex))
+                .collect(Collectors.toList());
 
         return RecommendResult.builder()
                 .dishIds(dishIds)
@@ -193,10 +205,46 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
         return count;
     }
 
-    private DishResponse toDishResponse(Dish d) {
+    /**
+     * 批量装载候选菜品所属门店，避免逐条查询造成 N+1
+     */
+    private Map<String, Merchant> loadMerchantIndex(List<Dish> dishes) {
+        List<String> merchantIds = dishes.stream()
+                .map(Dish::getMerchantId)
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .collect(Collectors.toList());
+        if (merchantIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return merchantRepository.findAllById(merchantIds).stream()
+                .collect(Collectors.toMap(Merchant::getId, m -> m, (a, b) -> a));
+    }
+
+    /**
+     * 门店若已下线/待审核，其菜品不应出现在首页推荐中；无门店关联的历史数据放行
+     */
+    private boolean isServingMerchantDish(Dish dish, Map<String, Merchant> merchantIndex) {
+        if (dish.getMerchantId() == null || dish.getMerchantId().isBlank()) {
+            return true;
+        }
+        Merchant merchant = merchantIndex.get(dish.getMerchantId());
+        return merchant != null && merchant.getStatus() != null && merchant.getStatus() == 1;
+    }
+
+    private String resolveMerchantName(Dish dish, Map<String, Merchant> merchantIndex) {
+        if (dish.getMerchantId() == null || dish.getMerchantId().isBlank()) {
+            return null;
+        }
+        Merchant merchant = merchantIndex.get(dish.getMerchantId());
+        return merchant != null ? merchant.getName() : null;
+    }
+
+    private DishResponse toDishResponse(Dish d, Map<String, Merchant> merchantIndex) {
         return DishResponse.builder()
                 .id(d.getId())
                 .merchantId(d.getMerchantId())
+                .merchantName(resolveMerchantName(d, merchantIndex))
                 .name(d.getName())
                 .description(d.getDescription())
                 .price(d.getPrice())

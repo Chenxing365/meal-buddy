@@ -59,8 +59,8 @@
       <view class="bottom-spacer"></view>
     </scroll-view>
 
-    <!-- 底部固定输入栏 -->
-    <view class="input-bar" :style="{ bottom: keyboardHeight + 'px' }">
+    <!-- 底部固定输入栏（flex 布局固定在页面底部，不再被 TabBar 遮挡） -->
+    <view class="input-bar" :style="keyboardHeight ? { marginBottom: keyboardHeight + 'px' } : {}">
       <input
         class="chat-input"
         v-model="inputMsg"
@@ -167,7 +167,9 @@ function onKeyboardHide() {
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* 扣除导航栏与 TabBar 高度，避免输入栏被 TabBar 压住 */
+  height: calc(100vh - var(--window-top, 0px) - var(--window-bottom, 0px));
+  overflow: hidden;
   background: #F8FAFC;
 }
 
@@ -224,6 +226,7 @@ function onKeyboardHide() {
 
 .message-list {
   flex: 1;
+  min-height: 0;
   padding: 24rpx;
   box-sizing: border-box;
 }
@@ -273,42 +276,49 @@ function onKeyboardHide() {
 }
 
 .bottom-spacer {
-  height: 160rpx;
+  height: 24rpx;
 }
 
-/* 底部固定输入栏 */
+/* 底部固定输入栏：作为 flex 子项常驻底部 */
 .input-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-shrink: 0;
   display: flex;
-  padding: 20rpx 24rpx 40rpx;
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: #FFFFFF;
   border-top: 1rpx solid #E2E8F0;
   align-items: center;
-  gap: 16rpx;
+  gap: 20rpx;
   box-shadow: 0 -4rpx 24rpx rgba(15, 23, 42, 0.06);
   z-index: 100;
 }
 
 .chat-input {
   flex: 1;
+  height: 100rpx;
+  line-height: 100rpx;
   background: #F1F5F9;
   border-radius: 999rpx;
-  padding: 16rpx 28rpx;
-  font-size: 28rpx;
+  padding: 0 32rpx;
+  font-size: 30rpx;
+  color: #0F172A;
+  box-sizing: border-box;
 }
 
 .send-btn {
+  height: 100rpx;
+  line-height: 100rpx;
   background: #FF5E00;
   color: #FFFFFF;
-  font-size: 26rpx;
+  font-size: 28rpx;
   font-weight: 600;
   border-radius: 999rpx;
-  padding: 12rpx 32rpx;
+  padding: 0 44rpx;
   margin: 0;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .send-btn:disabled {
   background: #CBD5E1;

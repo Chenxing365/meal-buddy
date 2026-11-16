@@ -31,6 +31,10 @@
         <button class="btn btn-primary" :loading="loading.ping" @tap="handlePing">
           发送 Ping
         </button>
+        <view class="result-box" v-if="instancePort">
+          <text class="result-label">当前命中实例（Nginx 负载均衡）</text>
+          <text class="result-text mono">127.0.0.1:{{ instancePort }}</text>
+        </view>
         <view class="result-box" v-if="results.ping">
           <text class="result-label">响应结果</text>
           <text class="result-text">{{ results.ping }}</text>
@@ -54,7 +58,7 @@
           写入 MongoDB
         </button>
         <view class="result-box" v-if="results.mongo">
-          <text class="result-label">新建文档 ID</text>
+          <text class="result-label">写入结果（成功为文档 ID，被拒为提示）</text>
           <text class="result-text mono">{{ results.mongo }}</text>
         </view>
       </view>
@@ -150,7 +154,7 @@
           <text class="card-title">系统统计快照</text>
           <text class="card-tag">REST GET /api/stats</text>
         </view>
-        <text class="card-desc">汇总 MongoDB 文档总数与 Redis 计数器，60s Redis 缓存</text>
+        <text class="card-desc">实时汇总 MongoDB 文档总数与 Redis 计数器（不再走 60s 缓存，避免旧快照误导）</text>
         <button class="btn btn-primary" :loading="loading.stats" @tap="handleGetStats">
           获取统计快照
         </button>
@@ -188,7 +192,7 @@
         <view class="ws-info-box">
           <view class="ws-row">
             <text class="ws-label">WSDL 地址</text>
-            <text class="ws-value mono">http://localhost:8080/ws/SystemIntegrationService?wsdl</text>
+            <text class="ws-value mono">{{ wsdlUrl }}</text>
           </view>
           <view class="ws-row">
             <text class="ws-label">可用操作</text>
@@ -266,8 +270,17 @@ const queried     = ref(false)
 // ── 计数器 ───────────────────────────────────────────────────────
 const counterValue = ref<number | string>('—')
 
+// ── 当前命中实例端口（双实例负载均衡可视化）─────────────────────
+const instancePort = ref('')
+
 // ── 统计快照 ─────────────────────────────────────────────────────
-const stats = ref<Record<string, number> | null>(null)
+const stats = ref<Record<string, any> | null>(null)
+
+// ── WSDL 地址：按当前站点动态拼接，避免写死主机地址 ───────────────
+const wsdlUrl = ref('—')
+// #ifdef H5
+wsdlUrl.value = `${location.origin}/ws/SystemIntegrationService?wsdl`
+// #endif
 
 // ── WebService SOAP 示例文本 ─────────────────────────────────────
 const soapPingExample = `<soapenv:Envelope
@@ -282,8 +295,9 @@ const soapPingExample = `<soapenv:Envelope
 // ── 初始化：自动 ping 检测服务器 ────────────────────────────────
 onMounted(async () => {
   try {
-    const res = await ping()
+    const res: any = await ping()
     serverOnline.value = res.status === 'UP'
+    instancePort.value = res.instance || ''
     results.ping = JSON.stringify(res, null, 2)
   } catch {
     serverOnline.value = false
@@ -294,13 +308,25 @@ onMounted(async () => {
 
 // ── 事件处理 ─────────────────────────────────────────────────────
 
+/**
+ * 统一校验后端业务响应：403/参数错误时 success=false，必须显式抛出，
+ * 否则页面会误报"写入成功"
+ */
+function assertOk(res: any, fallback: string): any {
+  if (!res || res.success === false) {
+    throw new Error(res?.message || fallback)
+  }
+  return res
+}
+
 async function handlePing() {
   loading.ping = true
   try {
-    const res = await ping()
+    const res: any = await ping()
     serverOnline.value = res.status === 'UP'
+    instancePort.value = res.instance || ''
     results.ping = JSON.stringify(res, null, 2)
-    uni.showToast({ title: '服务正常 ✓', icon: 'success', duration: 1500 })
+    uni.showToast({ title: `服务正常 ✓ 实例 ${res.instance || '-'}`, icon: 'success', duration: 1500 })
   } catch (e) {
     results.ping = `错误: ${(e as Error).message}`
     serverOnline.value = false
@@ -316,12 +342,12 @@ async function handleSaveLog() {
   }
   loading.mongo = true
   try {
-    const res = await saveLog({
+    const res = assertOk(await saveLog({
       module:   form.module,
       action:   form.action,
       operator: form.operator,
       content:  form.content
-    })
+    }), '写入失败')
     results.mongo = res.id ?? '写入成功'
     uni.showToast({ title: '写入成功 ✓', icon: 'success', duration: 1500 })
   } catch (e) {
@@ -335,7 +361,7 @@ async function handleQueryLogs() {
   loading.mongoQuery = true
   queried.value = false
   try {
-    const res = await queryLogs(queryModule.value || 'TEST', 0, 10)
+    const res: any = await queryLogs(queryModule.value || 'TEST', 0, 10)
     logList.value = res.data ?? []
     queried.value = true
     if (logList.value.length === 0) {
@@ -355,7 +381,7 @@ async function handleSetCache() {
   }
   loading.cacheSet = true
   try {
-    const res = await setCache(cache.key, cache.value)
+    const res = assertOk(await setCache(cache.key, cache.value), '写入失败')
     results.redis = `写入成功: ${JSON.stringify(res)}`
     uni.showToast({ title: '缓存写入成功 ✓', icon: 'success', duration: 1500 })
   } catch (e) {
@@ -372,7 +398,7 @@ async function handleGetCache() {
   }
   loading.cacheGet = true
   try {
-    const res = await getCache(cache.key)
+    const res: any = await getCache(cache.key)
     results.redis = `命中: ${res.hit} | Value: ${JSON.stringify(res.value)}`
   } catch (e) {
     results.redis = `错误: ${(e as Error).message}`
@@ -384,7 +410,7 @@ async function handleGetCache() {
 async function handleIncrement() {
   loading.incr = true
   try {
-    const res = await incrementCounter()
+    const res = assertOk(await incrementCounter(), '自增失败')
     counterValue.value = res.counter ?? 0
     uni.showToast({ title: `计数器: ${res.counter}`, icon: 'none', duration: 1000 })
   } catch (e) {
@@ -397,7 +423,7 @@ async function handleIncrement() {
 async function handleGetCounter() {
   loading.counterGet = true
   try {
-    const res = await getCounter()
+    const res: any = await getCounter()
     counterValue.value = res.counter ?? 0
   } catch {
     counterValue.value = '—'
@@ -409,7 +435,7 @@ async function handleGetCounter() {
 async function handleReset() {
   loading.reset = true
   try {
-    await resetCounter()
+    assertOk(await resetCounter(), '重置失败')
     counterValue.value = 0
     uni.showToast({ title: '计数器已重置 ✓', icon: 'success', duration: 1500 })
   } catch (e) {
@@ -422,10 +448,8 @@ async function handleReset() {
 async function handleGetStats() {
   loading.stats = true
   try {
-    const res = await getStats()
-    if (res.stats) {
-      stats.value = JSON.parse(res.stats as string)
-    }
+    const res = assertOk(await getStats(), '获取统计失败')
+    stats.value = res.stats ?? null
   } catch (e) {
     uni.showToast({ title: `失败: ${(e as Error).message}`, icon: 'none' })
   } finally {
