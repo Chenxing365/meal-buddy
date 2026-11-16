@@ -36,6 +36,16 @@ spring:
           min-idle: 2
           max-wait: 2000ms
 
+  # ── Spring AI 基础配置 ────────────────────────────────────────
+  ai:
+    openai:
+      base-url: ${AI_BASE_URL:https://api.deepseek.com}
+      api-key: ${AI_API_KEY:mock-key-placeholder}
+      chat:
+        options:
+          model: ${AI_MODEL_NAME:deepseek-flash}
+          temperature: 0.7
+
 # ── 服务器 ────────────────────────────────────────────────────
 server:
   port: 8080
@@ -85,3 +95,5 @@ security:
 meal-buddy:
   agent:
     engine: spring-ai                      # 首期启用 spring-ai，支持切换为 langchain4j
+
+

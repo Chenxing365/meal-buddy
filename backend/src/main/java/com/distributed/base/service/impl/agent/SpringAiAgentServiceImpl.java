@@ -9,10 +9,12 @@ import com.distributed.base.repository.DishRepository;
 import com.distributed.base.repository.MerchantRepository;
 import com.distributed.base.repository.UserPreferenceRepository;
 import com.distributed.base.service.MealBuddyAgentService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,17 +22,35 @@ import java.util.stream.Collectors;
 /**
  * Spring AI 驱动的饭搭子智能体引擎实现
  *
- * <p>阶段一默认启用，融合热量规则引擎与可解释性 AI 推荐话术
+ * <p>阶段一正式接入 Spring AI，融合热量规则引擎与可解释性 AI 推荐话术。
+ * 当大模型未配置或调用异常时，自动平滑降级至本地规则引擎话术，保障业务零中断。
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @ConditionalOnProperty(name = "meal-buddy.agent.engine", havingValue = "spring-ai", matchIfMissing = true)
 public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
 
     private final DishRepository dishRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final MerchantRepository merchantRepository;
+    private final ChatClient chatClient;
+
+    @Autowired
+    public SpringAiAgentServiceImpl(
+            DishRepository dishRepository,
+            UserPreferenceRepository userPreferenceRepository,
+            MerchantRepository merchantRepository,
+            @Autowired(required = false) ChatClient chatClient) {
+        this.dishRepository = dishRepository;
+        this.userPreferenceRepository = userPreferenceRepository;
+        this.merchantRepository = merchantRepository;
+        this.chatClient = chatClient;
+        if (this.chatClient != null) {
+            log.info("[SpringAiAgent] Spring AI ChatClient 注入成功，大模型真实驱动已激活");
+        } else {
+            log.warn("[SpringAiAgent] 未检测到 ChatClient Bean，将运行在优雅降级规则引擎模式");
+        }
+    }
 
     @Override
     public RecommendResult generateRecommendation(String userId, String mode) {
@@ -79,11 +99,8 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
             ruleSnapshot.put("maxCalorie", maxCalorie);
             ruleSnapshot.put("calorieFilterRule", "<=" + maxCalorie);
 
-            matchReason = String.format("【AI减脂推荐】为您匹配低卡轻食，单餐热量严格控制在 %d 大卡以内，少油健康无负担", maxCalorie);
-            if (!matchedDishes.isEmpty()) {
-                int avgCalorie = (int) matchedDishes.stream().mapToInt(Dish::getCalorie).average().orElse(maxCalorie);
-                matchReason += String.format("，精选 %d 道高纤低脂菜品，平均热量仅 %d 大卡。", matchedDishes.size(), avgCalorie);
-            }
+            matchReason = generateAiMatchReason(matchedDishes, mode, preference,
+                    String.format("【AI减脂推荐】为您匹配低卡轻食，单餐热量严格控制在 %d 大卡以内，少油健康无负担", maxCalorie));
         } else if ("indulge".equalsIgnoreCase(mode)) {
             matchedDishes = candidateDishes.stream()
                     .sorted(Comparator.comparingInt((Dish d) -> d.getCalorie() != null ? d.getCalorie() : 0).reversed())
@@ -93,10 +110,8 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
             ruleSnapshot.put("calorieRestricted", false);
             ruleSnapshot.put("sortStrategy", "high_calorie_and_rich_flavor");
 
-            matchReason = "【AI放纵模式】放纵美味模式：不设热量限制，尽情享受浓郁醇厚、满足多巴胺的高品质佳肴！";
-            if (!matchedDishes.isEmpty()) {
-                matchReason += String.format("已为您优选 %d 款高满足度大满足菜品。", matchedDishes.size());
-            }
+            matchReason = generateAiMatchReason(matchedDishes, mode, preference,
+                    "【AI放纵模式】放纵美味模式：不设热量限制，尽情享受浓郁醇厚、满足多巴胺的高品质佳肴！");
         } else {
             // normal
             int maxCalorie = preference.getCalorieLimit() != null && preference.getCalorieLimit() > 0
@@ -117,10 +132,8 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
             ruleSnapshot.put("maxCalorie", maxCalorie);
             ruleSnapshot.put("matchedFlavorTags", flavorTags);
 
-            matchReason = String.format("【AI均衡推荐】根据您的口味偏好精心搭配，均衡热量控制在 %d 大卡以内，美味无负担", maxCalorie);
-            if (!matchedDishes.isEmpty()) {
-                matchReason += String.format("，为您挑选出 %d 道高分精选好味。", matchedDishes.size());
-            }
+            matchReason = generateAiMatchReason(matchedDishes, mode, preference,
+                    String.format("【AI均衡推荐】根据您的口味偏好精心搭配，均衡热量控制在 %d 大卡以内，美味无负担", maxCalorie));
         }
 
         List<String> dishIds = matchedDishes.stream().map(Dish::getId).collect(Collectors.toList());
@@ -151,6 +164,82 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
             default -> "日常均衡（热量≤800大卡）";
         };
 
+        // 尝试调用 Spring AI 大模型
+        if (chatClient != null) {
+            try {
+                String systemPrompt = String.format("""
+                        你叫【AI饭搭子】，是“恰饭啦”美食消费平台的首席贴心AI营养顾问。
+                        你的职责是给用户提供精准、专业且温暖接地气的选餐、换菜、热量和营养搭配建议。
+                        当前用户饮食偏好上下文：
+                        - 当前模式：%s
+                        - 偏好热量上限：%s 大卡
+                        - 忌口过敏原：%s
+                        - 口味偏好：%s
+                        要求：
+                        1. 语言自然亲切、富有食欲感与人情味。
+                        2. 围绕用户的饮食模式给出有见地的搭配，不啰嗦，字数控制在 80~150 字左右。
+                        """,
+                        modeDesc,
+                        preference != null && preference.getCalorieLimit() != null ? preference.getCalorieLimit() : 800,
+                        preference != null && preference.getAllergyTags() != null ? preference.getAllergyTags() : "无",
+                        preference != null && preference.getFlavorTags() != null ? preference.getFlavorTags() : "通用"
+                );
+
+                String aiResponse = chatClient.prompt()
+                        .system(systemPrompt)
+                        .user(message)
+                        .call()
+                        .content();
+
+                if (StringUtils.hasText(aiResponse)) {
+                    return aiResponse.trim();
+                }
+            } catch (Exception e) {
+                log.error("[SpringAiAgent] 调用 Spring AI 大模型对话失败，自动平滑降级至规则引擎: {}", e.getMessage());
+            }
+        }
+
+        // 兜底降级：本地规则匹配话术
+        return fallbackChat(currentMode, modeDesc, message);
+    }
+
+    /**
+     * 结合大模型为候选菜品生成生动有说服力的个性化推荐理由（带本地降级）
+     */
+    private String generateAiMatchReason(List<Dish> dishes, String mode, UserPreference preference, String fallbackReason) {
+        if (chatClient == null || dishes.isEmpty()) {
+            return fallbackReason;
+        }
+
+        try {
+            String dishSummary = dishes.stream()
+                    .map(d -> String.format("%s(%d大卡)", d.getName(), d.getCalorie() != null ? d.getCalorie() : 0))
+                    .collect(Collectors.joining("、"));
+
+            String systemPrompt = """
+                    你是【恰饭啦】AI美食推荐官。根据用户当前模式和入选的精选菜品，生成一段 50 字以内、具有强烈食欲感与专业营养依据的推荐语。
+                    格式要求：以【AI某某推荐】开头，语气亲切热情。
+                    """;
+
+            String userPrompt = String.format("用户模式：%s，候选菜品：%s。请给出推荐语：", mode, dishSummary);
+
+            String reason = chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .call()
+                    .content();
+
+            if (StringUtils.hasText(reason)) {
+                return reason.trim();
+            }
+        } catch (Exception e) {
+            log.warn("[SpringAiAgent] 生成推荐理由时 LLM 调用异常，启用模板理由: {}", e.getMessage());
+        }
+
+        return fallbackReason;
+    }
+
+    private String fallbackChat(String currentMode, String modeDesc, String message) {
         StringBuilder reply = new StringBuilder();
         reply.append(String.format("【AI饭搭子·营养助手】您好！已获悉您当前处于 %s 模式。", modeDesc));
 

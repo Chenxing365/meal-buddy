@@ -29,14 +29,27 @@ frontend/.cache/
 frontend/dist-mp-weixin/
 frontend/.hbuilderx/
 
-# ── 本地开发配置（含敏感 IP / 密码，不提交）────────────────
-# 若团队统一使用 Docker，可选择提交 application-dev.yml 模板
-# backend/src/main/resources/application-dev.yml
+# ── 本地开发配置（含敏感 IP / 密码 / API Key，严禁提交）────────────────
+*.env
+*.env.local
+*.env.*.local
+.env
+.env.local
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/*-local.yml
 
 # ── Docker 数据卷（本地生成）─────────────────────────────────
 mongo-data/
 redis-data/
 nginx-logs/
+
+# ── 部署产物（本地打包/暂存，含运行期生成的凭据）───────────────
+deploy/*.tgz
+deploy/_stage/
+deploy/.env
+
+# ── 浏览器自动化产物（playwright-cli 调试快照）──────────────────
+.playwright-cli/
 
 # ── 系统文件 ─────────────────────────────────────────────────
 *.swp

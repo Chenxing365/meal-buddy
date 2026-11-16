@@ -37,7 +37,7 @@ class SpringAiAgentServiceTest {
 
     @BeforeEach
     void setUp() {
-        agentService = new SpringAiAgentServiceImpl(dishRepository, userPreferenceRepository, merchantRepository);
+        agentService = new SpringAiAgentServiceImpl(dishRepository, userPreferenceRepository, merchantRepository, null);
     }
 
     @Test

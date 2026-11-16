@@ -42,6 +42,7 @@ REDIS_PASSWORD=
 JWT_SECRET=$(openssl rand -hex 32)
 AES_KEY=$(openssl rand -hex 8)
 LOG_DIR=/opt/meal-buddy/logs
+# AI_API_KEY 由运维手动注入，勿写入本模板、勿提交版本库
 EOF
   chown root:meal "$APP/meal-buddy.env"
   chmod 640 "$APP/meal-buddy.env"
@@ -49,7 +50,11 @@ EOF
 else
   echo "meal-buddy.env 已存在，保留"
 fi
-sed -e 's/^MONGO_PASSWORD=.*/MONGO_PASSWORD=***/' -e 's/^JWT_SECRET=.*/JWT_SECRET=***/' "$APP/meal-buddy.env" | head -12
+sed -e 's/^MONGO_PASSWORD=.*/MONGO_PASSWORD=***/' \
+    -e 's/^JWT_SECRET=.*/JWT_SECRET=***/' \
+    -e 's/^AES_KEY=.*/AES_KEY=***/' \
+    -e 's/^AI_API_KEY=.*/AI_API_KEY=***/' \
+    "$APP/meal-buddy.env" | head -12
 
 step "5. 安装 systemd 双实例单元"
 sed -i 's/\r$//' /tmp/meal-buddy.service
