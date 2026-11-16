@@ -175,14 +175,21 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
                         - 偏好热量上限：%s 大卡
                         - 忌口过敏原：%s
                         - 口味偏好：%s
-                        要求：
-                        1. 语言自然亲切、富有食欲感与人情味。
-                        2. 围绕用户的饮食模式给出有见地的搭配，不啰嗦，字数控制在 80~150 字左右。
+
+                        当前平台在售菜品清单（唯一事实来源）：
+                        %s
+
+                        硬性要求：
+                        1. 语言自然亲切、富有食欲感与人情味，字数控制在 80~200 字。
+                        2. 推荐菜品必须且只能从上述清单中选取，禁止编造清单外的菜名、价格或门店。
+                        3. 你无法查看图片、无法获取定位、也无法访问外部平台菜单；用户要求截图或定位时，直接说明不支持，并引导其在平台内查看。
+                        4. 不要声称“看不到菜单”，也不要要求用户提供截图、店名或定位——菜单信息已在清单中，为空时直接说明当前无在售菜品。
                         """,
                         modeDesc,
                         preference != null && preference.getCalorieLimit() != null ? preference.getCalorieLimit() : 800,
                         preference != null && preference.getAllergyTags() != null ? preference.getAllergyTags() : "无",
-                        preference != null && preference.getFlavorTags() != null ? preference.getFlavorTags() : "通用"
+                        preference != null && preference.getFlavorTags() != null ? preference.getFlavorTags() : "通用",
+                        buildDishContext()
                 );
 
                 String aiResponse = chatClient.prompt()
@@ -255,6 +262,32 @@ public class SpringAiAgentServiceImpl implements MealBuddyAgentService {
         }
 
         return reply.toString();
+    }
+
+    /**
+     * 拼装对话上下文中的在售菜品清单，作为大模型回答选餐问题的唯一事实来源
+     */
+    private String buildDishContext() {
+        List<Dish> allDishes = dishRepository.findByStatusAndIsDeletedFalse(1);
+        if (allDishes == null || allDishes.isEmpty()) {
+            return "（无在售菜品）";
+        }
+        Map<String, Merchant> merchantIndex = loadMerchantIndex(allDishes);
+        List<Dish> servingDishes = allDishes.stream()
+                .filter(d -> isServingMerchantDish(d, merchantIndex))
+                .limit(12)
+                .collect(Collectors.toList());
+        if (servingDishes.isEmpty()) {
+            return "（无在售菜品）";
+        }
+        return servingDishes.stream()
+                .map(d -> String.format("- %s | 门店:%s | %s元 | %s大卡 | 口味:%s",
+                        d.getName(),
+                        resolveMerchantName(d, merchantIndex) != null ? resolveMerchantName(d, merchantIndex) : "平台自营",
+                        d.getPrice() != null ? d.getPrice() : "-",
+                        d.getCalorie() != null ? d.getCalorie() : "-",
+                        d.getFlavorTags() != null && !d.getFlavorTags().isEmpty() ? String.join("/", d.getFlavorTags()) : "-"))
+                .collect(Collectors.joining("\n"));
     }
 
     private boolean hasAllergyConflict(Dish dish, List<String> allergyTags) {
