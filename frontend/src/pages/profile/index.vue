@@ -24,13 +24,17 @@
         <input class="input-field" v-model="authForm.password" password placeholder="请输入登录密码" />
         <input v-if="authMode === 'register'" class="input-field" v-model="authForm.nickname" placeholder="用户昵称（选填）" />
         <input v-if="authMode === 'register'" class="input-field" v-model="authForm.phone" placeholder="手机号（加密存储，选填）" />
-        
+
+        <!-- 页面内错误提示：toast 在某些浏览器会被遮挡或不明显 -->
+        <view v-if="authError" class="auth-error">⚠️ {{ authError }}</view>
+
         <button 
           class="btn-primary-gradient auth-submit-btn" 
           :loading="submitting"
+          :disabled="submitting"
           @tap="handleAuthSubmit"
         >
-          {{ authMode === 'login' ? '登 录' : '注 册 并 登 录' }}
+          {{ submitting ? '登录中…' : (authMode === 'login' ? '登 录' : '注 册 并 登 录') }}
         </button>
       </view>
     </view>
@@ -133,6 +137,28 @@
         </view>
       </view>
 
+      <!-- 管理员账号快速切换（Role=9 运营数据） -->
+      <view class="food-card admin-switch-card" v-if="userInfo?.role !== 9">
+        <view class="admin-switch-header">
+          <text class="admin-switch-title">🔑 切换管理员账号</text>
+          <text class="admin-switch-sub">切换至 admin 账号可查看完整平台运营数据</text>
+        </view>
+        <button
+          class="btn-admin-switch"
+          :loading="switchingAdmin"
+          :disabled="switchingAdmin"
+          @tap="switchToAdmin"
+        >
+          {{ switchingAdmin ? '切换中...' : '一键切换至 admin 账号' }}
+        </button>
+      </view>
+      <view class="food-card admin-switch-card" v-else>
+        <view class="admin-active-hint">
+          <text class="admin-active-icon">✅</text>
+          <text class="admin-active-text">当前已是管理员账号（Role: 9），可正常查看全平台运营数据</text>
+        </view>
+      </view>
+
       <!-- 退出登录按钮 -->
       <button class="logout-btn" @tap="handleLogout">退出当前账号</button>
     </view>
@@ -155,6 +181,8 @@ import {
 const isLoggedIn = ref(false)
 const authMode = ref<'login' | 'register'>('login')
 const submitting = ref(false)
+const authError = ref('')
+const switchingAdmin = ref(false)
 
 const authForm = ref({
   username: '',
@@ -192,7 +220,9 @@ async function checkLogin() {
 }
 
 async function handleAuthSubmit() {
+  authError.value = ''
   if (!authForm.value.username.trim() || !authForm.value.password.trim()) {
+    authError.value = '请填写用户名和密码'
     uni.showToast({ title: '请填写用户名和密码', icon: 'none' })
     return
   }
@@ -219,8 +249,13 @@ async function handleAuthSubmit() {
       uni.showToast({ title: '注册并登录成功 ✓', icon: 'success' })
     }
     await checkLogin()
+    if (!isLoggedIn.value) {
+      authError.value = '登录已受理，但用户资料加载失败，请刷新页面重试'
+    }
   } catch (e) {
-    uni.showToast({ title: (e as Error).message || '操作失败', icon: 'none' })
+    const msg = (e as Error).message || '操作失败'
+    authError.value = msg
+    uni.showToast({ title: msg, icon: 'none', duration: 3000 })
   } finally {
     submitting.value = false
   }
@@ -279,9 +314,42 @@ function getRoleDesc(role?: number): string {
 function navigateTo(url: string) {
   uni.navigateTo({ url })
 }
+
+async function switchToAdmin() {
+  uni.showModal({
+    title: '切换管理员账号',
+    content: '将切换至 admin 账号（Role=9），可查看完整平台运营数据。确认继续？',
+    success: async (res) => {
+      if (!res.confirm) return
+      switchingAdmin.value = true
+      try {
+        await login({ username: 'admin', password: 'MealBuddy@2026' })
+        await checkLogin()
+        uni.showToast({ title: '已切换至管理员账号 ✓', icon: 'success' })
+      } catch (e) {
+        const msg = (e as Error).message || '切换失败，请确认服务器 admin 账号已初始化'
+        uni.showToast({ title: msg, icon: 'none', duration: 3000 })
+      } finally {
+        switchingAdmin.value = false
+      }
+    }
+  })
+}
 </script>
 
 <style scoped>
+.auth-error {
+  margin: 12rpx 0 8rpx;
+  padding: 16rpx 20rpx;
+  background: #FEF2F2;
+  border: 1rpx solid #FECACA;
+  border-radius: 12rpx;
+  color: #DC2626;
+  font-size: 24rpx;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .auth-tabs {
   display: flex;
   border-bottom: 2rpx solid #E2E8F0;
@@ -418,6 +486,52 @@ function navigateTo(url: string) {
   padding: 16rpx 0;
   margin-top: 40rpx;
   border: none;
+}
+
+.admin-switch-card {
+  padding: 28rpx;
+  margin-top: 24rpx;
+  background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+  border: 1rpx solid #A7F3D0;
+}
+.admin-switch-header {
+  margin-bottom: 20rpx;
+}
+.admin-switch-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #065F46;
+  display: block;
+  margin-bottom: 6rpx;
+}
+.admin-switch-sub {
+  font-size: 22rpx;
+  color: #047857;
+  line-height: 1.6;
+}
+.btn-admin-switch {
+  background: #10B981;
+  color: #FFFFFF;
+  font-size: 26rpx;
+  font-weight: 700;
+  border-radius: 999rpx;
+  padding: 14rpx 0;
+  width: 100%;
+  border: none;
+}
+.admin-active-hint {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.admin-active-icon {
+  font-size: 36rpx;
+}
+.admin-active-text {
+  font-size: 24rpx;
+  color: #065F46;
+  line-height: 1.6;
+  flex: 1;
 }
 </style>
 

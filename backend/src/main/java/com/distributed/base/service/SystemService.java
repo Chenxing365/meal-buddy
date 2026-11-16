@@ -12,7 +12,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -186,7 +188,20 @@ public class SystemService {
     // ================================================================
 
     /**
-     * 获取系统统计快照（先查 Redis 缓存，未命中则实时计算）
+     * 获取系统统计快照（结构化对象，供 REST 接口直接序列化返回）
+     */
+    public Map<String, Object> getStats() {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("mongoTotal", logRepository.count());
+        snapshot.put("successLogs", logRepository.countByResult("SUCCESS"));
+        snapshot.put("failLogs", logRepository.countByResult("FAILURE"));
+        snapshot.put("apiCallCount", getCounter());
+        snapshot.put("timestamp", LocalDateTime.now().toString());
+        return snapshot;
+    }
+
+    /**
+     * 获取系统统计快照（JSON 字符串，供 SOAP 接口使用，带 60 秒缓存）
      */
     public String getStatsJson() {
         Object cached = redisTemplate.opsForValue().get(KEY_STATS);

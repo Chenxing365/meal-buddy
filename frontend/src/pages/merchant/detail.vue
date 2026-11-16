@@ -40,7 +40,7 @@
             class="food-card dish-row-card"
           >
             <view class="dish-avatar-box">
-              <text class="dish-avatar-emoji">🥗</text>
+              <text class="dish-avatar-emoji">{{ getDishEmoji(dish.name) }}</text>
             </view>
             <view class="dish-content">
               <text class="dish-title">{{ dish.name }}</text>
@@ -102,6 +102,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getMerchantDetail, type MerchantInfo } from '@/api/merchant'
 import type { DishInfo } from '@/api/dish'
+import { getDishEmoji } from '@/utils/dish'
 
 const loading = ref(true)
 const merchantId = ref('')

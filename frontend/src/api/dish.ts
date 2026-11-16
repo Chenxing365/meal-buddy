@@ -3,6 +3,7 @@ import { http } from '@/utils/request'
 export interface DishInfo {
   id: string
   merchantId: string
+  merchantName?: string
   name: string
   description?: string
   price: number

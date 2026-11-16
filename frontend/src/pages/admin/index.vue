@@ -1,5 +1,14 @@
 <template>
   <view class="app-container admin-page">
+    <!-- 权限不足提示横幅 -->
+    <view v-if="permissionDenied" class="permission-denied-banner">
+      <text class="perm-icon">🔒</text>
+      <view class="perm-text-box">
+        <text class="perm-title">权限不足，无法拉取全平台数据</text>
+        <text class="perm-sub">请在「我的」页面切换至管理员账号（admin）后重新进入</text>
+      </view>
+    </view>
+
     <!-- 顶部状态栏与统计 -->
     <view class="admin-header card-industrial">
       <view class="header-main">
@@ -92,16 +101,16 @@
           </view>
 
           <view class="detail-row">
-            <text class="field-label">联系电话：</text>
-            <text class="field-val">{{ item.phone || '未填写' }}</text>
-          </view>
-          <view class="detail-row">
             <text class="field-label">经营地址：</text>
             <text class="field-val">{{ item.address || '未填写' }}</text>
           </view>
           <view class="detail-row">
-            <text class="field-label">商户简介：</text>
-            <text class="field-val">{{ item.description || '暂无简介' }}</text>
+            <text class="field-label">平台抽成：</text>
+            <text class="field-val">{{ ((item.commissionRate ?? 0) * 100).toFixed(1) }}%</text>
+          </view>
+          <view class="detail-row">
+            <text class="field-label">驳回理由：</text>
+            <text class="field-val">{{ item.rejectReason || '--' }}</text>
           </view>
           <view class="detail-row">
             <text class="field-label">申请时间：</text>
@@ -143,6 +152,11 @@
           class="filter-chip"
           :class="{ active: userRoleFilter === 1 }"
           @click="changeUserFilter(1)"
+        >配送骑手</view>
+        <view
+          class="filter-chip"
+          :class="{ active: userRoleFilter === 2 }"
+          @click="changeUserFilter(2)"
         >商户店主</view>
         <view
           class="filter-chip"
@@ -226,6 +240,7 @@ import {
 import type { MerchantInfo } from '@/api/merchant'
 
 const currentTab = ref<'merchant' | 'user'>('merchant')
+const permissionDenied = ref(false)
 
 // 商户数据
 const merchants = ref<MerchantInfo[]>([])
@@ -240,6 +255,16 @@ const userTotal = ref(0)
 const userRoleFilter = ref<number | undefined>(undefined)
 const loadingUsers = ref(false)
 
+function checkPermissionError(err: any): boolean {
+  const status = err?.statusCode || err?.status || err?.code
+  const msg = (err?.message || '').toLowerCase()
+  if (status === 403 || msg.includes('403') || msg.includes('forbidden') || msg.includes('权限')) {
+    permissionDenied.value = true
+    return true
+  }
+  return false
+}
+
 async function fetchMerchants() {
   loadingMerchants.value = true
   try {
@@ -248,13 +273,27 @@ async function fetchMerchants() {
       page: 0,
       size: 50
     })
-    merchants.value = res.content || []
-    merchantTotal.value = res.totalElements || 0
-    if (merchantStatusFilter.value === undefined) {
-      pendingCount.value = merchants.value.filter(m => m.status === 0).length
+    // 后端统一返回 Result{ success, code, data }，分页数据在 data 内
+    if (!res.success) {
+      if (!checkPermissionError(res)) {
+        uni.showToast({ title: res.message || '加载商户失败', icon: 'none' })
+      }
+      merchants.value = []
+      return
     }
+    const pageData = res.data
+    merchants.value = pageData?.content || []
+    if (merchantStatusFilter.value === undefined) {
+      merchantTotal.value = pageData?.totalElements || 0
+      pendingCount.value = merchants.value.filter(m => m.status === 0).length
+    } else if (merchantStatusFilter.value === 0) {
+      pendingCount.value = pageData?.totalElements || 0
+    }
+    permissionDenied.value = false
   } catch (err: any) {
-    uni.showToast({ title: err.message || '加载商户失败', icon: 'none' })
+    if (!checkPermissionError(err)) {
+      uni.showToast({ title: err.message || '加载商户失败', icon: 'none' })
+    }
   } finally {
     loadingMerchants.value = false
   }
@@ -268,10 +307,24 @@ async function fetchUsers() {
       page: 0,
       size: 50
     })
-    users.value = res.content || []
-    userTotal.value = res.totalElements || 0
+    if (!res.success) {
+      if (!checkPermissionError(res)) {
+        uni.showToast({ title: res.message || '加载用户失败', icon: 'none' })
+      }
+      users.value = []
+      return
+    }
+    const pageData = res.data
+    users.value = pageData?.content || []
+    // 仅在未按角色过滤时更新"注册用户"总数，避免筛选后统计口径漂移
+    if (userRoleFilter.value === undefined) {
+      userTotal.value = pageData?.totalElements || 0
+    }
+    permissionDenied.value = false
   } catch (err: any) {
-    uni.showToast({ title: err.message || '加载用户失败', icon: 'none' })
+    if (!checkPermissionError(err)) {
+      uni.showToast({ title: err.message || '加载用户失败', icon: 'none' })
+    }
   } finally {
     loadingUsers.value = false
   }
@@ -360,14 +413,15 @@ function getMerchantStatusBadge(status?: number) {
   }
 }
 
+// 角色编码与后端保持一致：0-普通用户，1-骑手，2-商家，9-管理员
 function getUserRoleBadge(role?: number) {
   switch (role) {
     case 9:
       return { text: '系统管理员', cls: 'badge-status badge-danger' }
-    case 1:
-      return { text: '商户店主', cls: 'badge-status badge-brand' }
     case 2:
-      return { text: '配送专员', cls: 'badge-status badge-info' }
+      return { text: '商户店主', cls: 'badge-status badge-brand' }
+    case 1:
+      return { text: '配送骑手', cls: 'badge-status badge-info' }
     default:
       return { text: '注册会员', cls: 'badge-status badge-neutral' }
   }
@@ -622,6 +676,36 @@ onMounted(() => {
 .empty-text {
   font-size: 26rpx;
   color: #94A3B8;
+}
+
+.permission-denied-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  background: #FEF2F2;
+  border: 1rpx solid #FECACA;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.perm-icon {
+  font-size: 44rpx;
+  flex-shrink: 0;
+}
+.perm-text-box {
+  flex: 1;
+}
+.perm-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #DC2626;
+  display: block;
+  margin-bottom: 6rpx;
+}
+.perm-sub {
+  font-size: 22rpx;
+  color: #EF4444;
+  line-height: 1.6;
 }
 </style>
 

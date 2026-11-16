@@ -54,10 +54,10 @@ export interface SetCacheRequest {
 
 /**
  * 服务健康探针
- * @returns { status: 'UP', message: 'pong', timestamp, service }
+ * @returns { status: 'UP', message: 'pong', timestamp, service, instance }
  */
 export const ping = () =>
-  http.get<{ status: string; message: string; timestamp: string; service: string }>('/api/ping')
+  http.get<{ status: string; message: string; timestamp: string; service: string; instance: string }>('/api/ping')
 
 // ── MongoDB 操作 ────────────────────────────────────────────────────
 
@@ -118,8 +118,17 @@ export const resetCounter = () =>
 
 // ── 系统统计 ────────────────────────────────────────────────────────
 
+/** 系统统计快照结构（后端直接返回对象） */
+export interface StatsSnapshot {
+  mongoTotal:     number
+  successLogs:    number
+  failLogs:       number
+  apiCallCount:   number
+  timestamp?:     string
+}
+
 /**
- * 获取系统统计快照（MongoDB 文档总数 + Redis 计数器，60s 缓存）
+ * 获取系统统计快照（MongoDB 文档总数 + Redis 计数器，实时计算）
  */
 export const getStats = () =>
-  http.get<{ stats: string; timestamp: string }>('/api/stats')
+  http.get<{ stats: StatsSnapshot; timestamp: string }>('/api/stats')

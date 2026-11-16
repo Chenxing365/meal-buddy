@@ -28,6 +28,9 @@ public class DishResponse implements Serializable {
     @Schema(description = "所属商家 ID")
     private String merchantId;
 
+    @Schema(description = "所属商家门店名称")
+    private String merchantName;
+
     @Schema(description = "菜品名称")
     private String name;
 

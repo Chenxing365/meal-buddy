@@ -62,8 +62,8 @@
       <view class="bottom-spacer"></view>
     </scroll-view>
 
-    <!-- 底部输入框区（防软键盘遮挡） -->
-    <view class="input-bar" :style="{ bottom: keyboardHeight + 'px' }">
+    <!-- 底部输入框区（flex 布局固定在底部，软键盘弹起时上移） -->
+    <view class="input-bar" :style="keyboardHeight ? { marginBottom: keyboardHeight + 'px' } : {}">
       <input 
         class="chat-input" 
         v-model="inputMsg" 
@@ -71,6 +71,8 @@
         :adjust-position="false"
         confirm-type="send"
         @confirm="sendMessage"
+        @focus="onKeyboardShow"
+        @blur="onKeyboardHide"
       />
       <button 
         class="send-btn" 
@@ -148,6 +150,16 @@ function scrollToBottom() {
     scrollTop.value = scrollTop.value + 1000
   })
 }
+function onKeyboardShow(e: any) {
+  // H5 下键盘高度由浏览器控制，小程序/App 关闭 adjust-position 后需手动上移输入栏
+  keyboardHeight.value = e?.detail?.height || 0
+  scrollToBottom()
+}
+
+function onKeyboardHide() {
+  keyboardHeight.value = 0
+}
+
 function goToRecommendBoard() {
   uni.switchTab({ url: '/pages/recommend/index' })
 }
@@ -162,7 +174,9 @@ function sendQuickText(text: string) {
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* 扣除导航栏与 TabBar 高度，避免输入栏被 TabBar 压住 */
+  height: calc(100vh - var(--window-top, 0px) - var(--window-bottom, 0px));
+  overflow: hidden;
   background: #F8FAFC;
 }
 
@@ -225,6 +239,7 @@ function sendQuickText(text: string) {
 }
 .message-list {
   flex: 1;
+  min-height: 0;
   padding: 24rpx;
   box-sizing: border-box;
 }
@@ -273,38 +288,47 @@ function sendQuickText(text: string) {
 }
 
 .bottom-spacer {
-  height: 140rpx;
+  height: 24rpx;
 }
 
+/* 底部固定输入栏：作为 flex 子项常驻底部 */
 .input-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-shrink: 0;
   display: flex;
-  padding: 20rpx 24rpx 40rpx;
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: #FFFFFF;
   border-top: 1rpx solid #E2E8F0;
   align-items: center;
-  gap: 16rpx;
+  gap: 20rpx;
 }
 
 .chat-input {
   flex: 1;
+  height: 100rpx;
+  line-height: 100rpx;
   background: #F1F5F9;
   border-radius: 999rpx;
-  padding: 16rpx 28rpx;
-  font-size: 28rpx;
+  padding: 0 32rpx;
+  font-size: 30rpx;
+  color: #0F172A;
+  box-sizing: border-box;
 }
 
 .send-btn {
+  height: 100rpx;
+  line-height: 100rpx;
   background: #FF5E00;
   color: #FFFFFF;
-  font-size: 26rpx;
+  font-size: 28rpx;
   font-weight: 600;
   border-radius: 999rpx;
-  padding: 12rpx 32rpx;
+  padding: 0 44rpx;
   margin: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .send-btn:disabled {
   background: #CBD5E1;
