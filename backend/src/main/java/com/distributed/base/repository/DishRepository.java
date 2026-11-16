@@ -19,6 +19,8 @@ public interface DishRepository extends MongoRepository<Dish, String> {
 
     List<Dish> findByStatusAndIsDeletedFalse(Integer status);
 
+    List<Dish> findByIsDeletedFalse();
+
     Page<Dish> findByMerchantIdAndIsDeletedFalse(String merchantId, Pageable pageable);
 
     Optional<Dish> findByIdAndIsDeletedFalse(String id);

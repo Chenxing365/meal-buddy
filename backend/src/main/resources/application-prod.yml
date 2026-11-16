@@ -69,3 +69,9 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: true
+
+# ── DIY 检索层：生产关闭会话树写入，避免会话内容入库 ─────────
+meal-buddy:
+  retrieval:
+    tree:
+      enabled: false

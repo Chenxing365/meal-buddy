@@ -96,4 +96,26 @@ meal-buddy:
   agent:
     engine: spring-ai                      # 首期启用 spring-ai，支持切换为 langchain4j
 
+  # ── DIY 检索层（TreeRAG 主链 + Naive 叶子 + Era 增量 + Graph 旁路）──
+  retrieval:
+    tree:
+      enabled: true
+      max-depth: 3                         # 1=会话 2=话题 3=消息
+      top-nodes: 3
+      leaf-top-k: 5
+      session-window-days: 7
+      topic-turn-size: 6
+    leaf:
+      enabled: true
+      top-k: 5
+      min-score: 0.05
+    era:
+      enabled: true
+      min-corpus: 2000                     # 语料低于该规模只做增量，不触发全量重建
+      change-threshold: 200
+      change-ratio: 0.2
+      refresh-interval-ms: 300000
+    graph:
+      enabled: false                       # GraphRAG 旁路默认关闭，按需开启
+
 

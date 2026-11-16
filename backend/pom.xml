@@ -39,6 +39,7 @@
         <springdoc.version>2.5.0</springdoc.version>
         <jjwt.version>0.12.5</jjwt.version>
         <spring-ai.version>1.0.0-M1</spring-ai.version>
+        <langchain4j.version>0.36.2</langchain4j.version>
     </properties>
 
     <!-- ============================================================
@@ -202,6 +203,19 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- ── LangChain4j 核心（DIY 学习用，仅供本地开发，不上生产）─────── -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <!-- LangChain4j OpenAI 兼容接入（同时支持 DeepSeek 代理端点） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>${langchain4j.version}</version>
         </dependency>
 
     </dependencies>

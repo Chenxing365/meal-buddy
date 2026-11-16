@@ -27,6 +27,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/ai/**",
                         "/api/order",
                         "/api/order/**",
+                        "/api/retrieval/**",
                         // 联调接口：读需登录，写操作在 ApiController 内额外校验管理员角色
                         "/api/mongo/**",
                         "/api/redis/**"
