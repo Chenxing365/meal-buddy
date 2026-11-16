@@ -8,6 +8,7 @@ import com.distributed.base.exception.BusinessException;
 import com.distributed.base.repository.DishRepository;
 import com.distributed.base.repository.RecommendLogRepository;
 import com.distributed.base.repository.UserPreferenceRepository;
+import com.distributed.base.retrieval.ChatTreeIndexer;
 import com.distributed.base.service.MealBuddyAgentService;
 import com.distributed.base.service.RecommendService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class RecommendServiceImpl implements RecommendService {
     private final UserPreferenceRepository userPreferenceRepository;
     private final StringRedisTemplate stringRedisTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ChatTreeIndexer chatTreeIndexer;
 
     public static final String KEY_RECOMMEND_MODE_PREFIX = "recommend:mode:";
     public static final String KEY_AI_CHAT_HISTORY_PREFIX = "ai:chat:history:";
@@ -176,6 +178,8 @@ public class RecommendServiceImpl implements RecommendService {
         } catch (Exception e) {
             log.warn("[RecommendService] 保存会话历史至 Redis 失败: {}", e.getMessage());
         }
+
+        chatTreeIndexer.appendTurn(userId, message, reply);
 
         return AiChatResponse.builder()
                 .reply(reply)
